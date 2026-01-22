@@ -1,7 +1,6 @@
 require 'rack-timeout'
 
-# Tempo máximo da requisição (em segundos)
-Rack::Timeout.timeout = 60
+Rails.application.config.middleware.insert_before Rack::Runtime, Rack::Timeout, service_timeout: 60
 
 # Reduz ruído de log
 Rails.application.config.after_initialize do
