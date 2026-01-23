@@ -53,9 +53,8 @@ module SwitchLocale
     account.locale
   end
 
-  def set_locale(locale, &block)
-    safe_locale = validate_and_get_locale(locale)
-    I18n.with_locale(safe_locale, &block)
+  def set_locale(locale)
+  I18n.locale = validate_and_get_locale(locale)
   end
 
   def validate_and_get_locale(locale)
