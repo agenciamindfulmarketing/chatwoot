@@ -1,9 +1,17 @@
 module SwitchLocale
   extend ActiveSupport::Concern
 
+  included do
+    before_action :switch_locale, unless: :installation_flow?
+  end
+
   private
 
-  def switch_locale(&)
+  def installation_flow?
+    controller_path.start_with?('installation/')
+  end
+
+  def switch_locale(&block)
     # Priority is for locale set in query string (mostly for widget/from js sdk)
     locale ||= params[:locale]
 
@@ -13,25 +21,20 @@ module SwitchLocale
     # Use the locale from a custom domain if applicable
     locale ||= locale_from_custom_domain
 
-    # if locale is not set in account, let's use DEFAULT_LOCALE env variable
+    # fallback to DEFAULT_LOCALE env
     locale ||= ENV.fetch('DEFAULT_LOCALE', nil)
 
-    set_locale(locale, &)
+    set_locale(locale, &block)
   end
 
-  def switch_locale_using_account_locale(&)
-    # Get the locale from the user first
+  def switch_locale_using_account_locale(&block)
     locale = locale_from_user
-
-    # Fallback to the account's locale if the user's locale is not set
     locale ||= locale_from_account(@current_account)
 
-    set_locale(locale, &)
+    set_locale(locale, &block)
   end
 
-  # If the request is coming from a custom domain, it should be for a helpcenter portal
-  # We will use the portal locale in such cases
-  def locale_from_custom_domain(&)
+  def locale_from_custom_domain
     return if params[:locale]
 
     domain = request.host
@@ -49,11 +52,9 @@ module SwitchLocale
     @user.ui_settings&.dig('locale')
   end
 
-  def set_locale(locale, &)
+  def set_locale(locale, &block)
     safe_locale = validate_and_get_locale(locale)
-    # Ensure locale won't bleed into other requests
-    # https://guides.rubyonrails.org/i18n.html#managing-the-locale-across-requests
-    I18n.with_locale(safe_locale, &)
+    I18n.with_locale(safe_locale, &block)
   end
 
   def validate_and_get_locale(locale)
@@ -77,3 +78,4 @@ module SwitchLocale
     account.locale
   end
 end
+
