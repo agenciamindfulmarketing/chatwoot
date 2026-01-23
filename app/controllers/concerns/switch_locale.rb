@@ -12,17 +12,10 @@ module SwitchLocale
   end
 
   def switch_locale(&block)
-    # Priority is for locale set in query string (mostly for widget/from js sdk)
-    locale ||= params[:locale]
-
-    # Use the user's locale if available
+    locale = params[:locale]
     locale ||= locale_from_user
-
-    # Use the locale from a custom domain if applicable
     locale ||= locale_from_custom_domain
-
-    # fallback to DEFAULT_LOCALE env
-    locale ||= ENV.fetch('DEFAULT_LOCALE', nil)
+    locale ||= ENV['DEFAULT_LOCALE']
 
     set_locale(locale, &block)
   end
@@ -34,22 +27,30 @@ module SwitchLocale
     set_locale(locale, &block)
   end
 
+  # 🔒 DESATIVADO POR ENV (evita timeout em produção)
   def locale_from_custom_domain
+    return if ENV['DISABLE_CUSTOM_DOMAIN_LOCALE'] == 'true'
     return if params[:locale]
 
     domain = request.host
     return if DomainHelper.chatwoot_domain?(domain)
 
-    @portal = Portal.find_by(custom_domain: domain)
-    return unless @portal
+    portal = Portal.find_by(custom_domain: domain)
+    return unless portal
 
-    @portal.default_locale
+    portal.default_locale
   end
 
   def locale_from_user
     return unless @user
 
     @user.ui_settings&.dig('locale')
+  end
+
+  def locale_from_account(account)
+    return unless account
+
+    account.locale
   end
 
   def set_locale(locale, &block)
@@ -61,21 +62,11 @@ module SwitchLocale
     return I18n.default_locale.to_s if locale.blank?
 
     available_locales = I18n.available_locales.map(&:to_s)
-    locale_without_variant = locale.split('_')[0]
+    base_locale = locale.split('_').first
 
-    if available_locales.include?(locale)
-      locale
-    elsif available_locales.include?(locale_without_variant)
-      locale_without_variant
-    else
-      I18n.default_locale.to_s
-    end
-  end
+    return locale if available_locales.include?(locale)
+    return base_locale if available_locales.include?(base_locale)
 
-  def locale_from_account(account)
-    return unless account
-
-    account.locale
+    I18n.default_locale.to_s
   end
 end
-
